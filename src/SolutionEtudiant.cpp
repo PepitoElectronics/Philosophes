@@ -1032,23 +1032,23 @@ bool philosReadyToEatPair()
 	{
 		if (i % 2 == 0 && group % 2 == 0)
 		{
-			pthread_mutex_lock(&mutexEtats);
+			//pthread_mutex_lock(&mutexEtats);
 			if (etatsPhilosophes[(i + 1) % NB_PHILOSOPHES] != 'F')
 			{
-				pthread_mutex_unlock(&mutexEtats);
+				//pthread_mutex_unlock(&mutexEtats);
 				return false;
 			}
-			pthread_mutex_unlock(&mutexEtats);
+			//pthread_mutex_unlock(&mutexEtats);
 		}
 		else if (i % 2 == 0 && group % 2 == 1)
 		{
-			pthread_mutex_lock(&mutexEtats);
+			//pthread_mutex_lock(&mutexEtats);
 			if (etatsPhilosophes[i] != 'F')
 			{
-				pthread_mutex_unlock(&mutexEtats);
+				//pthread_mutex_unlock(&mutexEtats);
 				return false;
 			}
-			pthread_mutex_unlock(&mutexEtats);
+			//pthread_mutex_unlock(&mutexEtats);
 		}
 	}
 	return true;
@@ -1059,13 +1059,13 @@ bool philosEndedToEatPair()
 	// group = eat_counter%NB_PHILOSOPHES;
 	for (int i = 0; i < NB_PHILOSOPHES; i++)
 	{
-		pthread_mutex_lock(&mutexEtats);
+		//pthread_mutex_lock(&mutexEtats);
 		if (etatsPhilosophes[i] == 'M')
 		{
-			pthread_mutex_unlock(&mutexEtats);
+			//pthread_mutex_unlock(&mutexEtats);
 			return false;
 		}
-		pthread_mutex_unlock(&mutexEtats);
+		//pthread_mutex_unlock(&mutexEtats);
 	}
 	return true;
 }
