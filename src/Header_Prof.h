@@ -15,7 +15,9 @@
 // ================= MODIFICATION AUTORISÉE ===================
 // Ces 2 lignes sont les seules des fichiers "_Prof" qui peuvent être modifiées
 #define SOLUTION_2 // Pour choisir quelle version des codes 'Etudiant' sera compilée
-#define NB_PHILOSOPHES 5
+<<<<<<< HEAD
+#define NB_PHILOSOPHES 10
+>>>>>>> a2777b6 (working pro for pair)
 
 // ================= Fin de MODIFICATION AUTORISÉE ===================
 
