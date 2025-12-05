@@ -37,6 +37,7 @@ double total_execution_time[NB_PHILOSOPHES] = {0.0}; // Initialisation à 0
 int execution_count[NB_PHILOSOPHES] = {0}; // Initialisation à 0
 double average_execution_time[NB_PHILOSOPHES] = {0.0}; // Initialisation à 0
 
+thread_local double elapsed_time;
 
 #ifdef SOLUTION_1
 
@@ -863,7 +864,7 @@ void *vieDuPhilosophe(void *idPtr)
 				//usleep(10000);
 				sem_wait(semFourchettes[(id+1)%NB_PHILOSOPHES]);
 				clock_gettime(CLOCK_MONOTONIC, &end);
-				elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+				elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
 				pthread_mutex_lock(&mutexCsv);
 				total_execution_time[id] += elapsed_time;
 				execution_count[id]++;
@@ -1332,8 +1333,12 @@ void *vieDuPhilosophe(void *idPtr){
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 	// while(!timerRunning){}
+	struct timespec start, end;
+
 	fprintf(stderr, "\033[0;32mPhilo with ID %d is ready\033[0m\n", id);
 	sem_post(semProgrammeReady[id]);
+	elapsed_time = 0;
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	while (1)
 	{
 
@@ -1346,17 +1351,30 @@ void *vieDuPhilosophe(void *idPtr){
 		pthread_mutex_lock(&mutexEtats);
 		char state = etatsPhilosophes[id];
 		pthread_mutex_unlock(&mutexEtats);
-
+		
 		switch (state)
 		{
 		case 'F':
-			// std::cout << "Philo : "<< id << " is hungry" << std::endl;
+        			// std::cout << "Philo : "<< id << " is hungry" << std::endl;
 			sem_wait(semAutorisation[id]);
-			pthread_testcancel(); // point où l'annulation du thread est permise
+			//pthread_testcancel(); // point où l'annulation du thread est permise
 			// actualiserEtAfficherEtatsPhilosophes(id,2);
 			sem_wait(semFourchettes[id]);
 			// usleep(10000);
 			sem_wait(semFourchettes[(id + 1) % NB_PHILOSOPHES]);
+			
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			elapsed_time = (end.tv_sec - start.tv_sec) + ((end.tv_nsec - start.tv_nsec) / 1e9);
+			if (elapsed_time < 0) {
+   		 		// adjust for nanosecond wrap-around
+    				elapsed_time = (end.tv_sec - start.tv_sec - 1) + ((1e9 + end.tv_nsec - start.tv_nsec) / 1e9);
+			}
+
+			pthread_mutex_lock(&mutexCsv);
+			total_execution_time[id] += elapsed_time;
+			execution_count[id]++;
+			pthread_mutex_unlock(&mutexCsv);
+			
 			actualiserEtAfficherEtatsPhilosophes(id, 'M');
 
 
@@ -1383,6 +1401,8 @@ void *vieDuPhilosophe(void *idPtr){
 			penser();
 			// std::cout << "Philo : "<< id << " done thinking" << std::endl;
 			actualiserEtAfficherEtatsPhilosophes(id, 'F');
+			elapsed_time = 0.0;
+			clock_gettime(CLOCK_MONOTONIC, &start);
 			// std::cout << "Philo : "<< id << " is waiting for an order" << std::endl;
 			break;
 
@@ -1402,10 +1422,12 @@ void actualiserEtAfficherEtatsPhilosophes(int idPhilosopheChangeant, char nouvel
 	char *color = "";
 	pthread_mutex_lock(&mutexEtats);
 	etatsPhilosophes[idPhilosopheChangeant] = nouvelEtat;
+	bool printtime = 0;
 	switch (nouvelEtat)
 	{
 		case 'M':
 			color = ANSI_COLOR_GREEN;
+			printtime = 1;
 			break;
 		case 'F':
 			color = ANSI_COLOR_RED;
@@ -1430,8 +1452,15 @@ void actualiserEtAfficherEtatsPhilosophes(int idPhilosopheChangeant, char nouvel
 		else
 			std::cout << "  ";
 	}
-	std::cout << "                 (t=" << difftime(time(NULL), instantDebut) << ")" << std::endl;
-	pthread_mutex_unlock(&mutexCout);
+	
+	if(printtime){
+		std::cout << "Temps d'attente du philo"<< idPhilosopheChangeant << " = " << elapsed_time <<std::endl;
+		printtime = 0;
+	}
+	else{
+		std::cout<< " " <<std::endl;
+	}	
+pthread_mutex_unlock(&mutexCout);
 }
 #endif
 
@@ -1817,14 +1846,15 @@ void writeDataToCSV() {
 
 void terminerProgramme()
 {
-	for (int i = 0; i < NB_PHILOSOPHES; i++)
-	{
-		sem_post(semAutorisation[i]);
-	}
-	sleep(1);
-	for (int i = 0; i < NB_PHILOSOPHES; i++){
-		pthread_cancel(threadsPhilosophes[i]);
-	}
+	// Step 1: Cancel all philosopher threads
+   	for (int i = 0; i < NB_PHILOSOPHES; i++) {
+        	pthread_cancel(threadsPhilosophes[i]);
+    	}
+
+   	 // Step 2: Wait for all threads to actually terminate
+    	for (int i = 0; i < NB_PHILOSOPHES; i++) {
+        	pthread_join(threadsPhilosophes[i], nullptr);
+    	}
 
 	for (int i = 0; i < NB_PHILOSOPHES; i++)
 	{
